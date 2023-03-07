@@ -33,29 +33,31 @@ type TimelineBar = {
   rightTime: number;
   type: string;
   label: string;
-  title: string;
+  title: string | undefined;
   className: string;
 };
 
 export const Timeline: React.FunctionComponent<{
-  context: MultiTraceModel,
-  boundaries: Boundaries,
+  model: MultiTraceModel | undefined,
   selectedAction: ActionTraceEvent | undefined,
   onSelected: (action: ActionTraceEvent) => void,
-}> = ({ context, boundaries, selectedAction, onSelected }) => {
+}> = ({ model, selectedAction, onSelected }) => {
   const [measure, ref] = useMeasure<HTMLDivElement>();
   const barsRef = React.useRef<HTMLDivElement | null>(null);
 
   const [previewPoint, setPreviewPoint] = React.useState<{ x: number, clientY: number } | undefined>();
   const [hoveredBarIndex, setHoveredBarIndex] = React.useState<number | undefined>();
 
-  const offsets = React.useMemo(() => {
-    return calculateDividerOffsets(measure.width, boundaries);
-  }, [measure.width, boundaries]);
+  const { boundaries, offsets } = React.useMemo(() => {
+    const boundaries = { minimum: model?.startTime || 0, maximum: model?.endTime || 30000 };
+    // Leave some nice free space on the right hand side.
+    boundaries.maximum += (boundaries.maximum - boundaries.minimum) / 20;
+    return { boundaries, offsets: calculateDividerOffsets(measure.width, boundaries) };
+  }, [measure.width, model]);
 
   const bars = React.useMemo(() => {
     const bars: TimelineBar[] = [];
-    for (const entry of context.actions) {
+    for (const entry of model?.actions || []) {
       let detail = trimRight(entry.params.selector || '', 50);
       if (entry.method === 'goto')
         detail = trimRight(entry.params.url || '', 50);
@@ -72,7 +74,7 @@ export const Timeline: React.FunctionComponent<{
       });
     }
 
-    for (const event of context.events) {
+    for (const event of model?.events || []) {
       const startTime = event.time;
       bars.push({
         event,
@@ -81,13 +83,13 @@ export const Timeline: React.FunctionComponent<{
         leftPosition: timeToPosition(measure.width, boundaries, startTime),
         rightPosition: timeToPosition(measure.width, boundaries, startTime),
         label: event.method,
-        title: '0',
+        title: undefined,
         type: event.class + '.' + event.method,
         className: `${event.class}_${event.method}`.toLowerCase()
       });
     }
     return bars;
-  }, [context, boundaries, measure.width]);
+  }, [model, boundaries, measure.width]);
 
   const hoveredBar = hoveredBarIndex !== undefined ? bars[hoveredBarIndex] : undefined;
   let targetBar: TimelineBar | undefined = bars.find(bar => bar.action === selectedAction);
@@ -185,7 +187,7 @@ export const Timeline: React.FunctionComponent<{
         ></div>;
       })
     }</div>
-    <FilmStrip context={context} boundaries={boundaries} previewPoint={previewPoint} />
+    <FilmStrip model={model} boundaries={boundaries} previewPoint={previewPoint} />
     <div className='timeline-marker timeline-marker-hover' style={{
       display: (previewPoint !== undefined) ? 'block' : 'none',
       left: (previewPoint?.x || 0) + 'px',
