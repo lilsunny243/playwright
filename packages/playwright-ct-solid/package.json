@@ -26,7 +26,7 @@
     }
   },
   "dependencies": {
-    "vite": "^4.1.1",
+    "vite": "^4.1.5",
     "vite-plugin-solid": "^2.5.0",
     "@playwright/test": "1.32.0-next"
   },
